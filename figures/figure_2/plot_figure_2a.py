@@ -11,9 +11,11 @@ The original sites file is trimmed_reads_BADH-2_esen.out.CP144767.1.tradis_gene_
 Use the "Table S1" worksheet in Supplementary tables (1-6).xlsx for the counts.
 
 The upper graph uses the raw indices and original model specification. The
-lower graph pairs the index and insertion count from each Table S1 row.
-The shaded interval extends from the lower 95% locus-bootstrap limit to the
-reported essentiality cutoff. figure_2a_bootstrap.R regenerates the fit CSV.
+lower graph pairs the index and distinct-site count from each Table S1 row.
+Both inputs use the full annotated span, including the ends.
+The shaded interval extends from the lower limit of a two-sided 99% locus-
+bootstrap interval to the reported essentiality cutoff. Pass --confidence 95
+for the earlier confidence level. figure_2a_bootstrap.R regenerates the fit CSV.
 """
 import argparse
 import csv
@@ -26,7 +28,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
-from matplotlib.ticker import FixedLocator, FuncFormatter
+from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator
 import numpy as np
 from openpyxl import load_workbook
 
@@ -69,10 +71,15 @@ def read_table(path, cutoff):
     return np.array(indices), np.array(counts, dtype=int), np.array(essential, dtype=bool), np.array(list(genes))
 
 
-def read_fit(sites_path, fit_path):
+def read_fit(sites_path, fit_path, confidence=99):
     with fit_path.open(encoding="utf-8-sig") as handle:
         row, = csv.DictReader(handle)
     stats = {key: float(value) for key, value in row.items()}
+    lower_key, upper_key = f"lower_{confidence}", f"upper_{confidence}"
+    if lower_key not in stats or upper_key not in stats:
+        raise ValueError(f"The fit summary lacks the {confidence}% interval. "
+                         "Regenerate it with figure_2a_bootstrap.R or select an available confidence level.")
+    lower, upper = stats[lower_key], stats[upper_key]
     with sites_path.open(encoding="utf-8-sig", newline="") as handle:
         first = handle.readline()
         handle.seek(0)
@@ -81,7 +88,7 @@ def read_fit(sites_path, fit_path):
     cutoff = round(stats["fitted_cutoff"], 5)
     if (len(indices) != stats["loci"] or not np.isfinite(indices).all()
             or np.any(indices < 0) or stats["successful"] != stats["replicates"]
-            or cutoff != 0.03209 or not 0 < stats["lower_95"] < cutoff < stats["upper_95"]):
+            or cutoff != 0.03209 or not 0 < lower < cutoff < upper):
         raise ValueError("The input indices and the verified model summary are inconsistent.")
     bins = int(stats["histogram_bins"])
     width = stats["histogram_bin_width"]
@@ -100,7 +107,8 @@ def read_fit(sites_path, fit_path):
         shape * np.log(rate) - lgamma(shape) + (shape - 1) * np.log(x[1:]) - rate * x[1:])
     return SimpleNamespace(bin_edges=edges, bin_density=density, insertion_index=x,
                            low_density=low, high_density=high, essential_cutoff=cutoff,
-                           lower=stats["lower_95"], upper=stats["upper_95"], loci=len(indices))
+                           lower=lower, upper=upper, lower_95=stats["lower_95"],
+                           confidence=confidence, loci=len(indices))
 
 
 def render(model, indices, counts, essential, lower, output):
@@ -109,7 +117,7 @@ def render(model, indices, counts, essential, lower, output):
     background = ~selected
     fig, (fit, points) = plt.subplots(2, 1, figsize=(7.8, 6.95), sharex=True,
                                       gridspec_kw={"height_ratios": [1.08, 1.0]})
-    fig.subplots_adjust(left=0.145, right=0.97, bottom=0.16, top=0.954, hspace=0.18)
+    fig.subplots_adjust(left=0.145, right=0.97, bottom=0.18, top=0.954, hspace=0.18)
     for ax in (fit, points):
         ax.spines[["right", "top"]].set_visible(False)
         for side in ("left", "bottom"):
@@ -151,13 +159,15 @@ def render(model, indices, counts, essential, lower, output):
     points.set_yticks([v for v in (0, 25, 100, 250, 500, 1000, 1800) if v <= points.get_ylim()[1]])
     points.yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x:,.0f}"))
     points.set_xlabel("Insertion index", fontsize=11, labelpad=7)
-    points.set_ylabel("Insertion sites per gene\n(square-root scale)", fontsize=10)
+    points.set_ylabel("Unique insertion sites per gene\n(square-root scale)", fontsize=10)
     points.set_xlim(min(model.bin_edges[0]-0.002, 0), max(model.bin_edges[-1], indices.max())+0.003)
     points.xaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x:.2f}"))
     # A magnified view makes the narrow validation band readable at print size.
     zoom = points.inset_axes([0.655, 0.62, 0.325, 0.34], zorder=6)
-    span = cutoff - lower
-    left, right = cutoff - 2.3 * span, cutoff + 1.25 * span
+    # Keep the earlier inset scale when comparing the two validation bands.
+    span = cutoff - model.lower_95
+    left = min(cutoff - 2.3 * span, lower - 0.25 * span)
+    right = cutoff + 1.25 * span
     nearby = (indices >= left) & (indices <= right)
     zoom.axvspan(lower, cutoff, color=BAND, alpha=0.65, lw=0)
     zoom.scatter(indices[nearby & background], counts[nearby & background],
@@ -169,7 +179,7 @@ def render(model, indices, counts, essential, lower, output):
     zoom.set_ylim(-5, max(counts[nearby])*1.12)
     zoom.set_title("Near the cutoff", fontsize=8.3, pad=3, color=INK, loc="left")
     zoom.set_ylabel("Sites", fontsize=7.2, labelpad=2)
-    zoom.set_xticks([v for v in np.arange(0, cutoff + 2*span, 0.001) if left <= v <= right])
+    zoom.xaxis.set_major_locator(MaxNLocator(nbins=4, steps=[1, 2, 5, 10]))
     zoom.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:.3f}"))
     zoom.tick_params(labelsize=7, length=2.6, pad=1.6)
     for spine in zoom.spines.values():
@@ -179,10 +189,11 @@ def render(model, indices, counts, essential, lower, output):
         Line2D([], [], ls="", marker="o", mfc=POINT, mec="none", markersize=5,
                label=f"Table S1 genes (n = {len(indices):,})"),
         Patch(facecolor=BAND, label=f"Essential calls prioritized for validation (n = {selected.sum():,})")
-    ], loc="lower center", bbox_to_anchor=(0.55, 0.040), frameon=False,
+    ], loc="lower center", bbox_to_anchor=(0.55, 0.060), frameon=False,
         ncol=2, columnspacing=1.7, fontsize=9, labelcolor=INK, handlelength=1.5)
-    fig.text(0.55, 0.020,
-             f"Gray shading extends from the lower 95% bootstrap limit ({lower:.6f}) "
+    fig.text(0.55, 0.030,
+             "Counts include all distinct insertion sites across each annotated gene, including both ends.\n"
+             f"Gray shading extends from the lower {model.confidence}% bootstrap limit ({lower:.6f}) "
              f"to the essentiality cutoff ({cutoff:.5f}).",
              ha="center", va="center", fontsize=8.1, color=INK)
     fig.align_ylabels()
@@ -197,9 +208,11 @@ def main():
     parser.add_argument("--table-s1", type=Path, required=True)
     parser.add_argument("--fit", type=Path, default=Path(__file__).with_name("figure_2a_fit.csv"),
                         help="Fit and bootstrap summary from figure_2a_bootstrap.R")
+    parser.add_argument("--confidence", type=int, choices=(95, 99), default=99,
+                        help="Two-sided bootstrap confidence level for the validation band (default: 99)")
     parser.add_argument("--output", type=Path, default=Path("Figure_2A.png"))
     args = parser.parse_args()
-    m = read_fit(args.sites, args.fit)
+    m = read_fit(args.sites, args.fit, args.confidence)
     x, y, ess, tags = read_table(args.table_s1, m.essential_cutoff)
     n = render(m, x, y, ess, m.lower, args.output)
     print(f"{len(x):,} genes; {ess.sum()} essential; {n} flagged "
