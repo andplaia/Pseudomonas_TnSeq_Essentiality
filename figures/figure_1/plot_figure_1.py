@@ -5,11 +5,11 @@ Requires Python 3.10+, NumPy, Matplotlib and openpyxl. Example:
 
 The black trace uses the plotting export's insertion indices. The colored
 essentiality bands use the assignments recorded in the Table S1 worksheet.
-Records absent from that worksheet are drawn in a separate gray band.
-Figure_1.png includes an outer ring with four selected, co-oriented gene
-clusters. Pass --no-landmarks to render the earlier map as Figure_1_plain.png.
-Pass --split-biotypes to distinguish RNA genes and pseudogenes by color
-and save a standalone preview with the suffix _RNA_pseudogenes.png.
+Figure_1.png shows RNA genes in gold and pseudogenes in charcoal on a
+shared track, and highlights four gene clusters on the outer ring.
+Use --no-split-biotypes for the earlier gray track (Figure_1_landmarks.png),
+or --no-landmarks for the original map without the outer ring (Figure_1_plain.png).
+Explicit --split-biotypes saves a copy with the suffix _RNA_pseudogenes.png.
 """
 import argparse
 import csv
@@ -200,7 +200,9 @@ def draw_landmark_ring(ax, length, genes):
                 color=color, fontsize=9.5, fontweight="medium", linespacing=1.05)
 
 
-def plot_map(sites, gff, table_s1, output, landmarks=True, split_biotypes=False):
+def plot_map(sites, gff, table_s1, output, landmarks=True, split_biotypes=None):
+    if split_biotypes is None:
+        split_biotypes = landmarks
     genes, absent_annotations = read_gene_annotations(gff) if landmarks or split_biotypes else ({}, None)
     starts, indices, labels = read_sites(sites, read_assignments(table_s1), absent_annotations, split_biotypes)
     bands = CLASS_BANDS.copy()
@@ -277,13 +279,15 @@ if __name__ == "__main__":
     parser.add_argument("--table-s1", type=Path, required=True, help="Workbook with the Table S1 assignments")
     parser.add_argument("--landmarks", action=argparse.BooleanOptionalAction, default=True,
                         help="Show the outer ring for four selected gene clusters (default: enabled)")
-    parser.add_argument("--split-biotypes", action="store_true",
-                        help="Use separate colors for annotated RNA genes and pseudogenes")
+    parser.add_argument("--split-biotypes", action=argparse.BooleanOptionalAction, default=None,
+                        help="Color RNA genes and pseudogenes separately (default: enabled with landmarks)")
     parser.add_argument("--output", type=Path, help="Path to the standalone image")
     args = parser.parse_args()
     name = "Figure_1" if args.landmarks else "Figure_1_plain"
     if args.split_biotypes:
         name += "_RNA_pseudogenes"
+    elif args.split_biotypes is False and args.landmarks:
+        name += "_landmarks"
     output = args.output or Path(name + ".png")
     plot_map(args.sites, args.gff, args.table_s1, output, landmarks=args.landmarks,
              split_biotypes=args.split_biotypes)
