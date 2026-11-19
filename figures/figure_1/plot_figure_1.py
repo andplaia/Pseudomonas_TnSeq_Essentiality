@@ -6,8 +6,8 @@ Requires Python 3.10+, NumPy, Matplotlib and openpyxl. Example:
 The black trace uses the plotting export's insertion indices. The colored
 essentiality bands use the assignments recorded in the Table S1 worksheet.
 Records absent from that worksheet are drawn in a separate gray band.
-For an additional outer ring with four selected, co-oriented gene clusters,
-pass --landmarks. This preview saves to Figure_1_landmarks.png by default.
+Figure_1.png includes an outer ring with four selected, co-oriented gene
+clusters. Pass --no-landmarks to render the earlier map as Figure_1_plain.png.
 """
 import argparse
 import csv
@@ -190,7 +190,7 @@ def draw_landmark_ring(ax, length, genes):
                 color=color, fontsize=9.5, fontweight="medium", linespacing=1.05)
 
 
-def plot_map(sites, gff, table_s1, output, landmarks=False):
+def plot_map(sites, gff, table_s1, output, landmarks=True):
     genes, absent_annotations = read_gene_annotations(gff) if landmarks else ({}, None)
     starts, indices, labels = read_sites(sites, read_assignments(table_s1), absent_annotations)
     length, cds = read_annotation(gff)
@@ -262,9 +262,10 @@ if __name__ == "__main__":
     parser.add_argument("--sites", type=Path, required=True, help="BioTraDIS gene-level export")
     parser.add_argument("--gff", type=Path, required=True, help="Pc9446 GFF3 annotation")
     parser.add_argument("--table-s1", type=Path, required=True, help="Workbook with the Table S1 assignments")
-    parser.add_argument("--landmarks", action="store_true", help="Preview a separate outer ring for four gene clusters")
+    parser.add_argument("--landmarks", action=argparse.BooleanOptionalAction, default=True,
+                        help="Show the outer ring for four selected gene clusters (default: enabled)")
     parser.add_argument("--output", type=Path, help="Path to the standalone image")
     args = parser.parse_args()
-    output = args.output or Path("Figure_1_landmarks.png" if args.landmarks else "Figure_1.png")
+    output = args.output or Path("Figure_1.png" if args.landmarks else "Figure_1_plain.png")
     plot_map(args.sites, args.gff, args.table_s1, output, landmarks=args.landmarks)
 
