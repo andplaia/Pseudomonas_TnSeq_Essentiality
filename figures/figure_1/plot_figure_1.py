@@ -8,6 +8,8 @@ essentiality bands use the assignments recorded in the Table S1 worksheet.
 Records absent from that worksheet are drawn in a separate gray band.
 Figure_1.png includes an outer ring with four selected, co-oriented gene
 clusters. Pass --no-landmarks to render the earlier map as Figure_1_plain.png.
+Pass --split-biotypes to distinguish RNA genes and pseudogenes by color
+and save a standalone preview with the suffix _RNA_pseudogenes.png.
 """
 import argparse
 import csv
@@ -31,6 +33,10 @@ CLASS_BANDS = {
     "Essential": (0.98, 1.05, "#4682B4"),
     "Non essential": (0.83, 0.92, "#FF6347"),
     "No S1 entry": (0.935, 0.965, "#686E73"),
+}
+BIOTYPE_BANDS = {
+    "RNA genes": (0.935, 0.965, "#B98200"),
+    "Pseudogenes": (0.935, 0.965, "#41464B"),
 }
 DENSITY_RADII = (1.09, 1.39)
 GENOME_RADIUS = 1.44
@@ -94,7 +100,9 @@ def read_assignments(path):
     return assignments
 
 
-def read_sites(path, assignments, absent_annotations=None):
+def read_sites(path, assignments, absent_annotations=None, split_biotypes=False):
+    if split_biotypes and absent_annotations is None:
+        raise ValueError("Separating RNA genes and pseudogenes requires GFF3 annotations.")
     seen = set()
     features = []
     with path.open(encoding="utf-8-sig", newline="") as handle:
@@ -116,6 +124,8 @@ def read_sites(path, assignments, absent_annotations=None):
                 annotated_coords, biotype = absent_annotations[tag]
                 if annotated_coords != coords or (biotype != "pseudogene" and biotype not in RNA_BIOTYPES):
                     raise ValueError(f"RNA/pseudogene legend does not apply to {tag}.")
+                if split_biotypes:
+                    label = "Pseudogenes" if biotype == "pseudogene" else "RNA genes"
             features.append((coords[0], float(row["ins_index"]), label))
     if not features:
         raise ValueError("The sites file contains no features.")
@@ -163,10 +173,10 @@ def xy(theta, radius):
     return np.column_stack((radius * np.cos(theta), radius * np.sin(theta)))
 
 
-def draw_band(ax, start_angle, end_angle, band):
+def draw_band(ax, start_angle, end_angle, band, linewidth=0.32):
     inner, outer, color = band
     segments = np.stack((xy(start_angle, inner), xy(end_angle, outer)), axis=1)
-    ax.add_collection(LineCollection(segments, linewidths=0.32, colors=color, zorder=2))
+    ax.add_collection(LineCollection(segments, linewidths=linewidth, colors=color, zorder=2))
 
 
 def draw_landmark_ring(ax, length, genes):
@@ -190,9 +200,13 @@ def draw_landmark_ring(ax, length, genes):
                 color=color, fontsize=9.5, fontweight="medium", linespacing=1.05)
 
 
-def plot_map(sites, gff, table_s1, output, landmarks=True):
-    genes, absent_annotations = read_gene_annotations(gff) if landmarks else ({}, None)
-    starts, indices, labels = read_sites(sites, read_assignments(table_s1), absent_annotations)
+def plot_map(sites, gff, table_s1, output, landmarks=True, split_biotypes=False):
+    genes, absent_annotations = read_gene_annotations(gff) if landmarks or split_biotypes else ({}, None)
+    starts, indices, labels = read_sites(sites, read_assignments(table_s1), absent_annotations, split_biotypes)
+    bands = CLASS_BANDS.copy()
+    if split_biotypes:
+        del bands["No S1 entry"]
+        bands.update(BIOTYPE_BANDS)
     length, cds = read_annotation(gff)
     if np.any((starts < 1) | (starts > length)):
         raise ValueError("Feature coordinates fall outside the chromosome.")
@@ -226,9 +240,9 @@ def plot_map(sites, gff, table_s1, output, landmarks=True):
     for strand, band in [("+", CDS_PLUS), ("-", CDS_MINUS)]:
         begin, end = np.asarray(cds[strand]).T
         draw_band(ax, angle(begin, length), angle(end, length), band)
-    for label, band in CLASS_BANDS.items():
+    for label, band in bands.items():
         positions = theta[labels == label]
-        draw_band(ax, positions, positions, band)
+        draw_band(ax, positions, positions, band, linewidth=0.7 if label in BIOTYPE_BANDS else 0.32)
     ax.plot(*xy(outline, GENOME_RADIUS).T, color="#6D7478", lw=0.65)
     tick_radius = 1.565 if landmarks else GENOME_RADIUS
     for pos in range(0, length, 1_000_000):
@@ -242,11 +256,10 @@ def plot_map(sites, gff, table_s1, output, landmarks=True):
     ax.text(0, -0.12, "ATCC 9446", ha="center", va="center", fontsize=12)
     ax.text(0, -0.255, f"{length:,} bp", ha="center", va="center", fontsize=9, color="#525D62")
     class_handles = []
-    for label, band in CLASS_BANDS.items():
+    absent_label = "RNA genes and pseudogenes" if landmarks else "Absent from Table S1"
+    for label, band in bands.items():
         count = np.count_nonzero(labels == label)
-        absent_label = "RNA genes and pseudogenes" if landmarks else "Absent from Table S1"
-        display = {"Essential": "Essential", "Non essential": "Nonessential",
-                   "No S1 entry": absent_label}[label]
+        display = {"Non essential": "Nonessential", "No S1 entry": absent_label}.get(label, label)
         class_handles.append(Line2D([], [], label=f"{display} ({count:,})", color=band[2], lw=3.5))
     strand_handles = [Line2D([], [], label=name, color=band[2], lw=3.5)
                       for name, band in [("CDS, + strand", CDS_PLUS), ("CDS, − strand", CDS_MINUS)]]
@@ -264,8 +277,14 @@ if __name__ == "__main__":
     parser.add_argument("--table-s1", type=Path, required=True, help="Workbook with the Table S1 assignments")
     parser.add_argument("--landmarks", action=argparse.BooleanOptionalAction, default=True,
                         help="Show the outer ring for four selected gene clusters (default: enabled)")
+    parser.add_argument("--split-biotypes", action="store_true",
+                        help="Use separate colors for annotated RNA genes and pseudogenes")
     parser.add_argument("--output", type=Path, help="Path to the standalone image")
     args = parser.parse_args()
-    output = args.output or Path("Figure_1.png" if args.landmarks else "Figure_1_plain.png")
-    plot_map(args.sites, args.gff, args.table_s1, output, landmarks=args.landmarks)
+    name = "Figure_1" if args.landmarks else "Figure_1_plain"
+    if args.split_biotypes:
+        name += "_RNA_pseudogenes"
+    output = args.output or Path(name + ".png")
+    plot_map(args.sites, args.gff, args.table_s1, output, landmarks=args.landmarks,
+             split_biotypes=args.split_biotypes)
 
