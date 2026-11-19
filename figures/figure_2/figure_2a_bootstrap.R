@@ -64,7 +64,7 @@ main <- function(args) {
     if (!length(args) || length(args) > 3L) {
         stop("Usage: Rscript figure_2a_bootstrap.R sites.tsv [replicates] [seed]")
     }
-    replicates <- if (length(args) >= 2) as.integer(args[2]) else 5000L
+    replicates <- if (length(args) >= 2) as.integer(args[2]) else 20000L
     seed <- if (length(args) >= 3) as.integer(args[3]) else 9446L
     if (!is.finite(replicates) || replicates < 2L || !is.finite(seed)) {
         stop("Supply an integer replicate count of at least two and an integer seed.")
@@ -86,7 +86,7 @@ main <- function(args) {
         draw <- sample.int(length(index), size = length(index), replace = TRUE)
         cutoff_fit(index[draw])[["essential"]]
     })
-    limits <- quantile(boot, c(0.025, 0.975), names = FALSE, type = 7)
+    limits <- quantile(boot, c(0.025, 0.975, 0.005, 0.995), names = FALSE, type = 7)
     # In the original plot the 90 bins are centered at steps from 0 to max.
     # Edges = ((0:90) - 0.5) * histogram_bin_width.
     histogram_bins <- 90L
@@ -101,7 +101,8 @@ main <- function(args) {
                          gamma_weight = unname(fitted["gamma_weight"]),
                          histogram_bins,
                          histogram_bin_width = max(index) / (histogram_bins - 1),
-                         model_grid_points = 5000L)
+                         model_grid_points = 5000L,
+                         lower_99 = limits[3], upper_99 = limits[4])
     write.csv(result, stdout(), row.names = FALSE)
 }
 
