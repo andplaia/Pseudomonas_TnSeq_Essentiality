@@ -6,6 +6,8 @@ Requires Python 3.10+, NumPy, Matplotlib and openpyxl. Example:
 The black trace uses the plotting export's insertion indices. The colored
 essentiality bands use the assignments recorded in the Table S1 worksheet.
 Records absent from that worksheet are drawn in a separate gray band.
+For an additional outer ring with four selected, co-oriented gene clusters,
+pass --landmarks. This preview saves to Figure_1_landmarks.png by default.
 """
 import argparse
 import csv
@@ -16,6 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.lines import Line2D
+from matplotlib.patches import Wedge
 import numpy as np
 from openpyxl import load_workbook
 
@@ -31,6 +34,40 @@ CLASS_BANDS = {
 }
 DENSITY_RADII = (1.09, 1.39)
 GENOME_RADIUS = 1.44
+
+# First and last annotated genes in genomic order on NZ_CP144767.1;
+# these bounds do not assert a transcription start or termination site.
+# The last pair sets the text position outside the ring.
+LANDMARKS = (
+    ("ATP synthase", "V4Y05_RS01005", "V4Y05_RS01045", "#995015", (1.70, 0.49)),
+    ("Succinate\ndehydrogenase", "V4Y05_RS09770", "V4Y05_RS09785", "#286762", (-0.90, 1.66)),
+    ("NADH\ndehydrogenase I", "V4Y05_RS20910", "V4Y05_RS20970", "#435888", (-0.87, -1.65)),
+    ("S10 ribosomal\nproteins", "V4Y05_RS28825", "V4Y05_RS28875", "#873E60", (1.67, -0.85)),
+)
+RNA_BIOTYPES = {"tRNA", "rRNA", "tmRNA", "SRP_RNA", "RNase_P_RNA", "ncRNA"}
+
+
+def read_gene_annotations(path):
+    """Index the annotated genes by current and previous locus tags."""
+    by_tag, by_old_tag = {}, {}
+    with path.open(encoding="utf-8-sig") as handle:
+        for line in handle:
+            if line.startswith("##FASTA"):
+                break
+            if line.startswith("#") or not line.strip():
+                continue
+            _, _, kind, start, end, _, strand, _, attributes = line.rstrip().split("\t")
+            if kind not in ("gene", "pseudogene"):
+                continue
+            fields = dict(part.split("=", 1) for part in attributes.split(";") if "=" in part)
+            coords = (int(start), int(end), {"+": 1, "-": -1}[strand])
+            by_tag[fields["locus_tag"]] = coords
+            for old_tag in fields.get("old_locus_tag", "").split(","):
+                if old_tag:
+                    if old_tag in by_old_tag:
+                        raise ValueError(f"Ambiguous old locus tag in GFF3: {old_tag}.")
+                    by_old_tag[old_tag] = (coords, fields["gene_biotype"])
+    return by_tag, by_old_tag
 
 
 def read_assignments(path):
@@ -57,7 +94,7 @@ def read_assignments(path):
     return assignments
 
 
-def read_sites(path, assignments):
+def read_sites(path, assignments, absent_annotations=None):
     seen = set()
     features = []
     with path.open(encoding="utf-8-sig", newline="") as handle:
@@ -75,6 +112,10 @@ def read_sites(path, assignments):
                 expected, label = assignments[tag]
                 if coords != expected:
                     raise ValueError(f"Genomic coordinates or strand disagree for {tag}.")
+            elif absent_annotations is not None:
+                annotated_coords, biotype = absent_annotations[tag]
+                if annotated_coords != coords or (biotype != "pseudogene" and biotype not in RNA_BIOTYPES):
+                    raise ValueError(f"RNA/pseudogene legend does not apply to {tag}.")
             features.append((coords[0], float(row["ins_index"]), label))
     if not features:
         raise ValueError("The sites file contains no features.")
@@ -128,8 +169,30 @@ def draw_band(ax, start_angle, end_angle, band):
     ax.add_collection(LineCollection(segments, linewidths=0.32, colors=color, zorder=2))
 
 
-def plot_map(sites, gff, table_s1, output):
-    starts, indices, labels = read_sites(sites, read_assignments(table_s1))
+def draw_landmark_ring(ax, length, genes):
+    outer, inner = 1.55, 1.495
+    ax.add_patch(Wedge((0, 0), outer, 0, 360, width=outer-inner,
+                       facecolor="#DCE1E2", edgecolor="none", zorder=1))
+    for name, first, last, color, label_pos in LANDMARKS:
+        start, _, strand = genes[first]
+        _, end, last_strand = genes[last]
+        if not (1 <= start <= end <= length) or strand != last_strand:
+            raise ValueError(f"Invalid landmark interval: {first} to {last}.")
+        limits = np.rad2deg(angle([start, end], length))
+        ax.add_patch(Wedge((0, 0), outer, *limits, width=outer-inner,
+                           facecolor=color, edgecolor="none", zorder=3))
+        mid = angle((start + end) / 2, length)
+        tip, bend = xy(mid, np.array([outer, outer + 0.045]))
+        side = 1 if label_pos[0] > 0 else -1
+        ax.plot([tip[0], bend[0], label_pos[0] - side*0.028],
+                [tip[1], bend[1], label_pos[1]], color=color, lw=0.75, clip_on=False)
+        ax.text(*label_pos, name, ha="left" if side > 0 else "right", va="center",
+                color=color, fontsize=9.5, fontweight="medium", linespacing=1.05)
+
+
+def plot_map(sites, gff, table_s1, output, landmarks=False):
+    genes, absent_annotations = read_gene_annotations(gff) if landmarks else ({}, None)
+    starts, indices, labels = read_sites(sites, read_assignments(table_s1), absent_annotations)
     length, cds = read_annotation(gff)
     if np.any((starts < 1) | (starts > length)):
         raise ValueError("Feature coordinates fall outside the chromosome.")
@@ -138,15 +201,18 @@ def plot_map(sites, gff, table_s1, output):
         raise ValueError("The normalization percentile must be positive.")
     normalized = np.minimum(indices, cap) / cap
     theta = angle(starts, length)
-    fig, ax = plt.subplots(figsize=(7.4, 7.5))
+    fig, ax = plt.subplots(figsize=(8.9, 7.7) if landmarks else (7.4, 7.5))
     fig.subplots_adjust(left=0.035, right=0.965, top=0.97, bottom=0.13)
     ax.set(aspect="equal", xlim=(-1.68, 1.74), ylim=(-1.60, 1.64))
+    if landmarks:
+        ax.set(xlim=(-2.10, 2.17), ylim=(-1.83, 1.88))
+        draw_landmark_ring(ax, length, genes)
     ax.axis("off")
     outline = np.linspace(angle(0, length), angle(length, length), 1000)
     low, high = DENSITY_RADII
     # Extend each guide horizontally from its top tangent. The keys are
     # physically aligned with the three radii, outside the chromosome.
-    key_x = 1.29
+    key_x = 1.53 if landmarks else 1.29
     for level in (0, 0.5, 1):
         r = low + level * (high - low)
         ax.plot(*xy(outline, r).T, color="#B8BEC3", lw=0.5, ls=(0, (2, 3)), zorder=0)
@@ -164,10 +230,11 @@ def plot_map(sites, gff, table_s1, output):
         positions = theta[labels == label]
         draw_band(ax, positions, positions, band)
     ax.plot(*xy(outline, GENOME_RADIUS).T, color="#6D7478", lw=0.65)
+    tick_radius = 1.565 if landmarks else GENOME_RADIUS
     for pos in range(0, length, 1_000_000):
         a = angle(pos, length)
-        ax.plot(*xy(a, np.array([GENOME_RADIUS, GENOME_RADIUS+0.04])).T, color="#555F65", lw=0.8)
-        x, y = xy(a, GENOME_RADIUS+0.108)[0]
+        ax.plot(*xy(a, np.array([tick_radius, tick_radius+0.04])).T, color="#555F65", lw=0.8)
+        x, y = xy(a, tick_radius+0.108)[0]
         ax.text(x, y, f"{pos//1_000_000} Mb", ha="left" if pos == 0 else "center",
                 va="center", fontsize=8.5, bbox={"facecolor": "white", "edgecolor": "none", "pad": 0.4})
     ax.text(0, 0.105, "Pseudomonas\nchlororaphis", ha="center", va="center",
@@ -177,8 +244,9 @@ def plot_map(sites, gff, table_s1, output):
     class_handles = []
     for label, band in CLASS_BANDS.items():
         count = np.count_nonzero(labels == label)
+        absent_label = "RNA genes and pseudogenes" if landmarks else "Absent from Table S1"
         display = {"Essential": "Essential", "Non essential": "Nonessential",
-                   "No S1 entry": "Absent from Table S1"}[label]
+                   "No S1 entry": absent_label}[label]
         class_handles.append(Line2D([], [], label=f"{display} ({count:,})", color=band[2], lw=3.5))
     strand_handles = [Line2D([], [], label=name, color=band[2], lw=3.5)
                       for name, band in [("CDS, + strand", CDS_PLUS), ("CDS, − strand", CDS_MINUS)]]
@@ -194,7 +262,9 @@ if __name__ == "__main__":
     parser.add_argument("--sites", type=Path, required=True, help="BioTraDIS gene-level export")
     parser.add_argument("--gff", type=Path, required=True, help="Pc9446 GFF3 annotation")
     parser.add_argument("--table-s1", type=Path, required=True, help="Workbook with the Table S1 assignments")
-    parser.add_argument("--output", type=Path, default=Path("Figure_1.png"))
+    parser.add_argument("--landmarks", action="store_true", help="Preview a separate outer ring for four gene clusters")
+    parser.add_argument("--output", type=Path, help="Path to the standalone image")
     args = parser.parse_args()
-    plot_map(args.sites, args.gff, args.table_s1, args.output)
+    output = args.output or Path("Figure_1_landmarks.png" if args.landmarks else "Figure_1.png")
+    plot_map(args.sites, args.gff, args.table_s1, output, landmarks=args.landmarks)
 
