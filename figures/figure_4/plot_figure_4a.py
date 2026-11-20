@@ -200,12 +200,15 @@ def draw(counts, statuses, multi):
     left, label_x, plot_x, plot_end = 12, 30, 256, 405
     e_count_x, ne_count_x, fold_x = 443, 483, 541
     entries, cursor = [], 92
-    for row in category_rows(counts, statuses):
+    tested = category_rows(counts, statuses)
+    for row in tested:
+        if row[0] in ("A", "B"):
+            continue
         words = wrap(NAMES[row[0]], width=48, break_long_words=False)
         row_height = 16.4 if len(words) == 1 else 24.5
         entries.append((row, "\n".join(words), cursor + row_height / 2))
         cursor += row_height
-    baseline, height = cursor, cursor + 68
+    baseline, height = cursor, cursor + 94
     fig = plt.figure(figsize=(width / 72, height / 72))
     ax = fig.add_axes([0, 0, 1, 1], xlim=(0, width), ylim=(height, 0))
     ax.axis("off")
@@ -259,6 +262,10 @@ def draw(counts, statuses, multi):
     missing_e, missing_ne = (sum(statuses[g].values()) - statuses[g][ASSIGNED] for g in GROUPS)
     label(left, baseline + 48, f"The eggNOG-mapper annotation provides no COG assignment for {missing_e} essential "
           f"and {missing_ne} nonessential genes.", 8.0, color=MUTED)
+    label(left, baseline + 65, f"All {len(tested)} categories were tested. Two are listed here with their E and NE gene counts.", 8.0, color=MUTED)
+    legend_counts = [f"{code}, {NAMES[code]} ({counts['essential'][code]} E, "
+                     f"{counts['nonessential'][code]} NE)" for code in ("A", "B")]
+    label(left, baseline + 79, "  ·  ".join(legend_counts), 8.0, color=MUTED)
     return fig
 
 
