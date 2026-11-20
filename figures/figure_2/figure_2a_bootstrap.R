@@ -86,7 +86,8 @@ main <- function(args) {
         draw <- sample.int(length(index), size = length(index), replace = TRUE)
         cutoff_fit(index[draw])[["essential"]]
     })
-    limits <- quantile(boot, c(0.025, 0.975, 0.005, 0.995), names = FALSE, type = 7)
+    limits <- quantile(boot, c(0.025, 0.975, 0.005, 0.995, 0.0005, 0.9995),
+                       names = FALSE, type = 7)
     # In the original plot the 90 bins are centered at steps from 0 to max.
     # Edges = ((0:90) - 0.5) * histogram_bin_width.
     histogram_bins <- 90L
@@ -102,7 +103,8 @@ main <- function(args) {
                          histogram_bins,
                          histogram_bin_width = max(index) / (histogram_bins - 1),
                          model_grid_points = 5000L,
-                         lower_99 = limits[3], upper_99 = limits[4])
+                         lower_99 = limits[3], upper_99 = limits[4],
+                         lower_99.9 = limits[5], upper_99.9 = limits[6])
     write.csv(result, stdout(), row.names = FALSE)
 }
 
