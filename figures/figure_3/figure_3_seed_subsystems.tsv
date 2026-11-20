@@ -1,0 +1,132 @@
+superclass	class	subsystem	essential_genes
+CELL ENVELOPE	Cell Envelope, Capsule and Slime layer	KDO2-Lipid A biosynthesis	12
+CELL ENVELOPE	Cell Envelope, Capsule and Slime layer	Outer membrane	1
+CELL ENVELOPE	Cell Envelope, Capsule and Slime layer	TonB-ExbBD energy transducing system	2
+CELL ENVELOPE	Cell Envelope, Capsule and Slime layer	dTDP-rhamnose synthesis -- gjo	4
+CELLULAR PROCESSES	Cell Cycle, Cell Division and Death	Bacterial cell division related cluster 2	2
+CELLULAR PROCESSES	Cell Cycle, Cell Division and Death	Bacterial checkpoint-control-related cluster	1
+CELLULAR PROCESSES	Cell Cycle, Cell Division and Death	Cell division cluster	14
+CELLULAR PROCESSES	Cell Cycle, Cell Division and Death	Cell division initiation related cluster	4
+CELLULAR PROCESSES	Cell Cycle, Cell Division and Death	Cell division related cluster including coaD	4
+CELLULAR PROCESSES	Cell Cycle, Cell Division and Death	Macromolecular synthesis operon	5
+CELLULAR PROCESSES	Cell Cycle, Cell Division and Death	Murein hydrolase regulation and cell death	1
+CELLULAR PROCESSES	Cell Cycle, Cell Division and Death	Ribosomal hibernation related cluster	5
+CELLULAR PROCESSES	Cell Cycle, Cell Division and Death	Toxin-antitoxin replicon stabilization systems	1
+CELLULAR PROCESSES	Clustering-based subsystems	Cell division related cluster	1
+CELLULAR PROCESSES	Prokaryotic cell type differentiation	Sporulation-associated proteins with broader functions	1
+DNA PROCESSING	DNA Processing	DNA Repair Base Excision	1
+DNA PROCESSING	DNA Processing	DNA internalization-related cluster	2
+DNA PROCESSING	DNA Processing	DNA processing cluster	1
+DNA PROCESSING	DNA Processing	DNA repair, bacterial	2
+DNA PROCESSING	DNA Processing	DNA repair, bacterial UvrD and related helicases	1
+DNA PROCESSING	DNA Processing	DNA topoisomerases, Type II, ATP-dependent	1
+ENERGY	Energy and Precursor Metabolites Generation	Dehydrogenase complexes	1
+ENERGY	Energy and Precursor Metabolites Generation	Entner-Doudoroff Pathway	3
+ENERGY	Energy and Precursor Metabolites Generation	Glycolysis and Gluconeogenesis	5
+ENERGY	Energy and Precursor Metabolites Generation	Pentose phosphate pathway	3
+ENERGY	Energy and Precursor Metabolites Generation	Pyruvate Alanine Serine Interconversions	2
+ENERGY	Energy and Precursor Metabolites Generation	Pyruvate metabolism II: acetyl-CoA, acetogenesis from pyruvate	2
+ENERGY	Energy and Precursor Metabolites Generation	TCA Cycle	4
+ENERGY	Respiration	Biogenesis of c-type cytochromes	2
+ENERGY	Respiration	F0F1-type ATP synthase	9
+ENERGY	Respiration	Respiratory Complex I	1
+ENERGY	Respiration	Succinate dehydrogenase and Fumarate reductase cpmlexes	5
+MEMBRANE TRANSPORT	Membrane Transport	Lipoprotein transporter to outer membrane Lol	5
+MEMBRANE TRANSPORT	Membrane Transport	Lpt lipopolysaccharide transport system	4
+MEMBRANE TRANSPORT	Membrane Transport	Na(+) H(+) antiporter	1
+MEMBRANE TRANSPORT	Membrane Transport	Two partner secretion pathway (TPS)	2
+MEMBRANE TRANSPORT	Membrane Transport	Type I secretion systems disambiguation	3
+METABOLISM	Amino Acids and Derivatives	Amino acid racemase	1
+METABOLISM	Amino Acids and Derivatives	Aspartate to Threonine Module	1
+METABOLISM	Amino Acids and Derivatives	Chorismate Synthesis	2
+METABOLISM	Amino Acids and Derivatives	Cysteine synthesis	1
+METABOLISM	Amino Acids and Derivatives	D-3-phosphoglycerate to phosphoserine module	1
+METABOLISM	Amino Acids and Derivatives	Diaminopimelate Synthesis 	2
+METABOLISM	Amino Acids and Derivatives	Glutamine synthetases	1
+METABOLISM	Amino Acids and Derivatives	Histidine Biosynthesis -- gjo	2
+METABOLISM	Amino Acids and Derivatives	Lysine DAP biosynthetic pathway	1
+METABOLISM	Amino Acids and Derivatives	Peptidase clustering with DAP	5
+METABOLISM	Carbohydrates	S-Adenosyl-L-homocysteine recycling	1
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Biotin synthesis & utilization	2
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Coenzyme A -- gjo	1
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Coenzyme A Biosynthesis cluster	1
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Fe-S cluster assembly	5
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Folate Biosynthesis	7
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Folate biosynthesis cluster	5
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Heme Biosynthesis: protoporphyrin-, coproporphyrin- and siroheme-dependent pathways	7
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Lipoic acid metabolism	4
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Lipoylated proteins	1
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Metal chelatases	1
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Molybdenum cofactor biosynthesis	2
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	NAD and NADP cofactor biosynthesis global	1
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Pyridoxin (Vitamin B6) Biosynthesis	2
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Riboflavin, FMN and FAD metabolism with fusion events	4
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Thiamin, thiazole, hydroxymethylpyrimidine salvage and uptake	1
+METABOLISM	Cofactors, Vitamins, Prosthetic Groups	Ubiquinone biosynthesis	9
+METABOLISM	Fatty Acids, Lipids, and Isoprenoids	Enoyl-[ACP] reductases disambiguation	1
+METABOLISM	Fatty Acids, Lipids, and Isoprenoids	Fatty Acid Biosynthesis FASII	3
+METABOLISM	Fatty Acids, Lipids, and Isoprenoids	Fatty Acid Biosynthesis cluster	1
+METABOLISM	Fatty Acids, Lipids, and Isoprenoids	Fatty acid synthesis	4
+METABOLISM	Fatty Acids, Lipids, and Isoprenoids	Glycerolipid and Glycerophospholipid Metabolism in Bacteria	3
+METABOLISM	Fatty Acids, Lipids, and Isoprenoids	Isoprenoid Biosynthesis: Interconversions	1
+METABOLISM	Fatty Acids, Lipids, and Isoprenoids	Nonmevalonate Branch of Isoprenoid Biosynthesis	5
+METABOLISM	Fatty Acids, Lipids, and Isoprenoids	Phospholipid and Fatty acid biosynthesis related cluster	1
+METABOLISM	Metabolite damage and its repair or mitigation	Metabolite repair	1
+METABOLISM	Nucleosides and Nucleotides	De Novo Pyrimidine Synthesis	2
+METABOLISM	Nucleosides and Nucleotides	DeNovo Purine Biosynthesis	7
+METABOLISM	Nucleosides and Nucleotides	GMP synthase	1
+METABOLISM	Nucleosides and Nucleotides	IMP and Xanthine conversion to XMP and GMP module	1
+METABOLISM	Nucleosides and Nucleotides	Ribonucleotide reduction	2
+METABOLISM	Phosphate Metabolism	High affinity phosphate transporter and control of PHO regulon	1
+METABOLISM	Secondary Metabolism	Colicin V and Bacteriocin Production Cluster	1
+MISCELLANEOUS	Miscellaneous	beta-Barrel Assembly Machinery	2
+MISCELLANEOUS	Prophages, Transposable elements, Plasmids	Mu-like phage	1
+PROTEIN PROCESSING	Protein Fate (folding, modification, targeting, degradation)	Chaperones GroEL GroES and Thermosome	2
+PROTEIN PROCESSING	Protein Fate (folding, modification, targeting, degradation)	Peptidyl-prolyl cis-trans isomerase	1
+PROTEIN PROCESSING	Protein Fate (folding, modification, targeting, degradation)	Protein chaperones	3
+PROTEIN PROCESSING	Protein Fate (folding, modification, targeting, degradation)	Signal peptidase	1
+PROTEIN PROCESSING	Protein Synthesis	Glycyl-tRNA synthetase	1
+PROTEIN PROCESSING	Protein Synthesis	Ribosomal proteins, single-copy	23
+PROTEIN PROCESSING	Protein Synthesis	Ribosomal proteins, zinc requirement	6
+PROTEIN PROCESSING	Protein Synthesis	Ribosome LSU, bacterial	17
+PROTEIN PROCESSING	Protein Synthesis	Translation elongation factors, bacterial	3
+PROTEIN PROCESSING	Protein Synthesis	Translation initiation factors, bacterial	2
+PROTEIN PROCESSING	Protein Synthesis	Translation termination factors, bacterial	3
+PROTEIN PROCESSING	Protein Synthesis	Universal GTPases	7
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Ala	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Arg	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Asn	3
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Asp	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Cys	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Gln	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Gly	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, His	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Lys	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Met	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Phe	2
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Pro	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Ser	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Thr	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Trp	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Tyr	1
+PROTEIN PROCESSING	Protein Synthesis	tRNA aminoacylation, Val	1
+REGULATION AND CELL SIGNALING	Regulation and Cell signaling	Stringent Response, (p)ppGpp metabolism	1
+RNA PROCESSING	RNA Processing	5-methylaminomethyl-2-thiouridine	6
+RNA PROCESSING	RNA Processing	ATP-dependent RNA helicases, bacterial	1
+RNA PROCESSING	RNA Processing	Possible RNA modification and stress response cluster	1
+RNA PROCESSING	RNA Processing	RNA polymerase, bacterial	3
+RNA PROCESSING	RNA Processing	RNA processing and degradation, bacterial	2
+RNA PROCESSING	RNA Processing	Threonylcarbamoyladenosine	2
+RNA PROCESSING	RNA Processing	tRNA nucleotidyltransferase	1
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Antibiotic targets in DNA processing	3
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Antibiotic targets in cell wall biosynthesis	1
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Antibiotic targets in metabolic pathways	2
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Antibiotic targets in protein synthesis	5
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Antibiotic targets in transcription	1
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Cluster containing Glutathione synthetase	1
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Copper homeostasis: copper tolerance	1
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Heat shock dnaK gene cluster extended	1
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Hfl operon	1
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Protection from Reactive Oxygen Species	1
+STRESS RESPONSE, DEFENSE, VIRULENCE	Stress Response, Defense and Virulence	Resistance to Daptomycin	1
+Unknown	Unknown	Unknown	128
