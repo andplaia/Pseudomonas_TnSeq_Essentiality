@@ -13,9 +13,11 @@ Use the "Table S1" worksheet in Supplementary tables (1-6).xlsx for the counts.
 The upper graph uses the raw indices and original model specification. The
 lower graph pairs the index and distinct-site count from each Table S1 row.
 Both inputs use the full annotated span, including the ends.
-The shaded interval extends from the lower limit of a two-sided 99% locus-
+The shaded interval extends from the lower limit of a two-sided 99.9% locus-
 bootstrap interval to the reported essentiality cutoff. Pass --confidence 95
-for the earlier confidence level. figure_2a_bootstrap.R regenerates the fit CSV.
+or --confidence 99 for the earlier levels. figure_2a_bootstrap.R regenerates the fit CSV.
+Use --sensitivity-percent 10 to shade essential calls that would fall outside
+the essential set if the cutoff were lowered by 10% of its reported value.
 """
 import argparse
 import csv
@@ -71,13 +73,13 @@ def read_table(path, cutoff):
     return np.array(indices), np.array(counts, dtype=int), np.array(essential, dtype=bool), np.array(list(genes))
 
 
-def read_fit(sites_path, fit_path, confidence=99):
+def read_fit(sites_path, fit_path, confidence=99.9):
     with fit_path.open(encoding="utf-8-sig") as handle:
         row, = csv.DictReader(handle)
     stats = {key: float(value) for key, value in row.items()}
-    lower_key, upper_key = f"lower_{confidence}", f"upper_{confidence}"
+    lower_key, upper_key = f"lower_{confidence:g}", f"upper_{confidence:g}"
     if lower_key not in stats or upper_key not in stats:
-        raise ValueError(f"The fit summary lacks the {confidence}% interval. "
+        raise ValueError(f"The fit summary lacks the {confidence:g}% interval. "
                          "Regenerate it with figure_2a_bootstrap.R or select an available confidence level.")
     lower, upper = stats[lower_key], stats[upper_key]
     with sites_path.open(encoding="utf-8-sig", newline="") as handle:
@@ -111,7 +113,7 @@ def read_fit(sites_path, fit_path, confidence=99):
                            confidence=confidence, loci=len(indices))
 
 
-def render(model, indices, counts, essential, lower, output):
+def render(model, indices, counts, essential, lower, output, sensitivity_percent=None):
     cutoff = model.essential_cutoff
     selected = essential & (indices >= lower) & (indices < cutoff)
     background = ~selected
@@ -164,7 +166,7 @@ def render(model, indices, counts, essential, lower, output):
     points.xaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{x:.2f}"))
     # A magnified view makes the narrow validation band readable at print size.
     zoom = points.inset_axes([0.655, 0.62, 0.325, 0.34], zorder=6)
-    # Keep the earlier inset scale when comparing the two validation bands.
+    # Use the earlier inset scale as a common reference for the validation bands.
     span = cutoff - model.lower_95
     left = min(cutoff - 2.3 * span, lower - 0.25 * span)
     right = cutoff + 1.25 * span
@@ -191,10 +193,15 @@ def render(model, indices, counts, essential, lower, output):
         Patch(facecolor=BAND, label=f"Essential calls prioritized for validation (n = {selected.sum():,})")
     ], loc="lower center", bbox_to_anchor=(0.55, 0.060), frameon=False,
         ncol=2, columnspacing=1.7, fontsize=9, labelcolor=INK, handlelength=1.5)
+    if sensitivity_percent is None:
+        band_note = (f"Gray shading extends from the lower {model.confidence:g}% bootstrap limit ({lower:.6f}) "
+                     f"to the essentiality cutoff ({cutoff:.5f}).")
+    else:
+        band_note = (f"Gray shading marks the follow-up range from {sensitivity_percent:g}% below the cutoff "
+                     f"({lower:.6f}) to the cutoff ({cutoff:.5f}).")
     fig.text(0.55, 0.030,
              "Counts include all distinct insertion sites across each annotated gene, including both ends.\n"
-             f"Gray shading extends from the lower {model.confidence}% bootstrap limit ({lower:.6f}) "
-             f"to the essentiality cutoff ({cutoff:.5f}).",
+             + band_note,
              ha="center", va="center", fontsize=8.1, color=INK)
     fig.align_ylabels()
     fig.savefig(output, dpi=600, facecolor="white")
@@ -208,16 +215,24 @@ def main():
     parser.add_argument("--table-s1", type=Path, required=True)
     parser.add_argument("--fit", type=Path, default=Path(__file__).with_name("figure_2a_fit.csv"),
                         help="Fit and bootstrap summary from figure_2a_bootstrap.R")
-    parser.add_argument("--confidence", type=int, choices=(95, 99), default=99,
-                        help="Two-sided bootstrap confidence level for the validation band (default: 99)")
-    parser.add_argument("--output", type=Path, default=Path("Figure_2A.png"))
+    band = parser.add_mutually_exclusive_group()
+    band.add_argument("--confidence", type=float, choices=(95, 99, 99.9), default=99.9,
+                      help="Two-sided bootstrap confidence level for the validation band (default: 99.9)")
+    band.add_argument("--sensitivity-percent", type=float, metavar="PERCENT",
+                      help="Flag essential calls within this percentage below the reported cutoff")
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    m = read_fit(args.sites, args.fit, args.confidence)
+    pct = args.sensitivity_percent
+    if pct is not None and not 0 < pct < 100:
+        parser.error("--sensitivity-percent must be greater than 0 and less than 100.")
+    m = read_fit(args.sites, args.fit, args.confidence if pct is None else 95)
     x, y, ess, tags = read_table(args.table_s1, m.essential_cutoff)
-    n = render(m, x, y, ess, m.lower, args.output)
+    lower = m.lower if pct is None else m.essential_cutoff * (1 - pct / 100)
+    default_name = "Figure_2A.png" if pct is None else f"Figure_2A_{pct:g}pct_sensitivity.png"
+    n = render(m, x, y, ess, lower, args.output or Path(default_name), pct)
     print(f"{len(x):,} genes; {ess.sum()} essential; {n} flagged "
-          f"({m.lower:.8f} <= insertion index < {m.essential_cutoff:.5f}).")
-    print("Flagged loci:", ", ".join(tags[ess & (x >= m.lower)]))
+          f"({lower:.8f} <= insertion index < {m.essential_cutoff:.5f}).")
+    print("Flagged loci:", ", ".join(tags[ess & (x >= lower)]))
 
 
 if __name__ == "__main__":
