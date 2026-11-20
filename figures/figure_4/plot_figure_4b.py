@@ -16,7 +16,8 @@ ratio. The interval is its two-sided, equal-tailed exact 95% confidence
 interval conditional on the margins, without a pseudocount. The p and q values
 come from the two directional Fisher tests per category in Figure 4A, with a
 single Benjamini-Hochberg adjustment across all categories and directions.
-The categories follow the order of the prevalence ratios in Figure 4A.
+The plotted categories follow the order of the prevalence ratios in Figure 4A.
+Categories A and B are retained in the statistical results and listed in the figure legend.
 """
 
 import argparse
@@ -44,6 +45,7 @@ OR = "conditional_odds_ratio_essential_vs_nonessential"
 LOW = "exact_95ci_lower"
 HIGH = "exact_95ci_upper"
 COLUMNS = ("COG", "category", *COUNTS, OR, LOW, HIGH, *TESTS)
+LEGEND_ONLY = {"A", "B"}
 
 
 def read_table(path):
@@ -101,6 +103,12 @@ def prepare(data):
 
 def draw(data):
     entries, (essential_total, nonessential_total) = prepare(data)
+    test_count = 2 * len(entries)
+    entries = [entry for entry in entries if entry[0] not in LEGEND_ONLY]
+    if not entries:
+        raise ValueError("No categories remain to display.")
+    omitted = [f"{r['COG']}, {r['category']} ({r['essential_in_category']}/{r['nonessential_in_category']})"
+               for r in sorted(data, key=lambda r: r["COG"]) if r["COG"] in LEGEND_ONLY]
     # Layout coordinates are typographical points, with a dedicated lane for
     # zero. Positive odds ratios have a true logarithmic coordinate.
     width = 582
@@ -114,7 +122,7 @@ def draw(data):
         row_height = 16.4 if "\n" not in label else 24.5
         rendered.append((record, label, y + row_height / 2))
         y += row_height
-    baseline, height = y, y + 69
+    baseline, height = y, y + (83 if omitted else 69)
     fig = plt.figure(figsize=(width / 72, height / 72))
     ax = fig.add_axes([0, 0, 1, 1], xlim=(0, width), ylim=(height, 0))
     ax.axis("off")
@@ -189,10 +197,13 @@ def draw(data):
     ax.plot([left, interval_right], [baseline + 2, baseline + 2], lw=0.7, color="#9EAEB5")
     label(left, baseline + 15, "Points show conditional odds ratios with exact 95% confidence intervals. "
           "The dashed line marks equal odds (OR = 1).", 8, color=MUTED)
-    label(left, baseline + 32, "Positive odds ratios use a logarithmic scale. The separate zero column "
-          "shows the estimates for categories with no essential genes.", 8, color=MUTED)
+    label(left, baseline + 32, "Positive odds ratios use a logarithmic scale. A separate column shows "
+          "zero estimates.", 8, color=MUTED)
     label(left, baseline + 49, f"Filled markers indicate q < 0.05 after Benjamini–Hochberg adjustment "
-          f"across {2 * len(entries)} one-sided Fisher exact tests.", 8, color=MUTED)
+          f"across {test_count} one-sided Fisher exact tests.", 8, color=MUTED)
+    if omitted:
+        label(left, baseline + 66, "Omitted (essential/nonessential gene counts)    "
+              + "    ·    ".join(omitted), 8, color=MUTED)
     return fig
 
 
