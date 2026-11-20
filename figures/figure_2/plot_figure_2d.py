@@ -6,8 +6,9 @@ Run with Python 3.10+ and Matplotlib:
 
 The table uses 1-based inclusive coordinates on the ATCC 9446 chromosome
 (CP144767.1 / NZ_CP144767.1). Gene intervals and strands come from RefSeq
-annotation, classifications from Table S1, and genomic insertion positions
-from the archived insertions.tab. Each distinct genomic position contributes
+annotation, protein-coding gene classifications from Table S1, and genomic
+insertion positions from the archived insertions.tab. As in Figure 1, RNA
+genes are gold and pseudogenes are charcoal. Each distinct genomic position contributes
 one mark within a neighborhood, including positions outside annotated genes.
 The three coordinate axes are independently scaled to the full flanking genes
 of the original maps: ATP synthase 204,942–263,859 bp, cell wall
@@ -43,8 +44,21 @@ LABELS = {
 INK = "#202C31"
 MUTED = "#485B65"
 SITE = "#364952"
-COLORS = {"Essential": "#4682B4", "Non essential": "#FF6347", "No S1 entry": "#858B90"}
-LEGEND = {"Essential": "Essential", "Non essential": "Nonessential", "No S1 entry": "No Table S1 entry"}
+COLORS = {"Essential": "#4682B4", "Nonessential": "#FF6347",
+          "RNA genes": "#B98200", "Pseudogenes": "#41464B"}
+PROTEIN_LABELS = {"Essential": "Essential", "Non essential": "Nonessential"}
+RNA_BIOTYPES = {"tRNA", "rRNA", "tmRNA", "SRP_RNA", "RNase_P_RNA", "ncRNA"}
+
+
+def feature_label(row):
+    biotype = row["biotype"]
+    if biotype == "pseudogene":
+        return "Pseudogenes"
+    if biotype in RNA_BIOTYPES:
+        return "RNA genes"
+    if biotype == "protein_coding" and row["essentiality"] in PROTEIN_LABELS:
+        return PROTEIN_LABELS[row["essentiality"]]
+    raise ValueError(f"Unknown biotype or essentiality for {row['locus_tag']}: {row}")
 
 
 def read_regions(path):
@@ -59,8 +73,8 @@ def read_regions(path):
                 region["bounds"] = (start, end)
             elif row["kind"] == "site" and start == end:
                 region["sites"].append(start)
-            elif row["kind"] == "gene" and row["strand"] in ("+", "-") and row["essentiality"] in COLORS:
-                region["genes"].append((start, end, row["strand"], row["gene"], row["essentiality"]))
+            elif row["kind"] == "gene" and row["strand"] in ("+", "-"):
+                region["genes"].append((start, end, row["strand"], row["gene"], feature_label(row)))
             else:
                 raise ValueError(f"Invalid record type, strand or Table S1 assignment: {row}")
     for key, region in regions.items():
@@ -142,12 +156,12 @@ def render(regions, output):
     fig.text(0.027, 0.965, "D", weight="bold", fontsize=16, va="top", color=INK)
     fig.text(0.085, 0.964, "Insertion sites in three genomic neighborhoods",
              weight="bold", fontsize=14, va="top", color=INK)
-    handles = [Patch(facecolor=color, edgecolor=INK, linewidth=0.35, label=LEGEND[call])
-               for call, color in COLORS.items()]
+    handles = [Patch(facecolor=color, edgecolor=INK, linewidth=0.35, label=label)
+               for label, color in COLORS.items()]
     handles.append(Line2D([], [], ls="", marker="|", markersize=9, color=SITE,
                           label="Distinct insertion site"))
-    fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.08, 0.92), ncol=4,
-               frameon=False, handlelength=1.25, columnspacing=1.6, handletextpad=0.45,
+    fig.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.08, 0.92), ncol=5,
+               frameon=False, handlelength=1.25, columnspacing=1.4, handletextpad=0.45,
                fontsize=8.7, borderaxespad=0)
     for key, bottom in zip(REGIONS, (0.635, 0.380, 0.125)):
         ax = fig.add_axes([0.085, bottom, 0.88, 0.144])

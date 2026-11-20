@@ -29,7 +29,7 @@ atp	gene	229819	230922	+	V4Y05_RS01100	dnaN	Essential	protein_coding
 atp	gene	230943	232046	+	V4Y05_RS01105	recF	Non essential	protein_coding
 atp	gene	232051	234468	+	V4Y05_RS01110	gyrB	Essential	protein_coding
 atp	gene	234523	235086	-	V4Y05_RS01115		Non essential	protein_coding
-atp	gene	235101	236216	-	V4Y05_RS01120		No S1 entry	pseudogene
+atp	gene	235101	236216	-	V4Y05_RS01120			pseudogene
 atp	gene	236376	237200	+	V4Y05_RS01125		Non essential	protein_coding
 atp	gene	237659	237985	-	V4Y05_RS01130		Non essential	protein_coding
 atp	gene	238809	239525	-	V4Y05_RS01135		Non essential	protein_coding
@@ -1360,7 +1360,7 @@ wall	gene	5861899	5863623	-	V4Y05_RS26505		Essential	protein_coding
 wall	gene	5863623	5863916	-	V4Y05_RS26510	ftsL	Essential	protein_coding
 wall	gene	5863913	5864854	-	V4Y05_RS26515	rsmH	Essential	protein_coding
 wall	gene	5864857	5865312	-	V4Y05_RS26520	mraZ	Essential	protein_coding
-wall	gene	5865621	5865974	-	V4Y05_RS26525	rnpB	No S1 entry	RNase_P_RNA
+wall	gene	5865621	5865974	-	V4Y05_RS26525	rnpB		RNase_P_RNA
 wall	gene	5866048	5866902	-	V4Y05_RS26530	rsmI	Non essential	protein_coding
 wall	gene	5867140	5868951	+	V4Y05_RS26535		Non essential	protein_coding
 wall	gene	5868951	5869322	+	V4Y05_RS26540		Non essential	protein_coding
@@ -2121,11 +2121,11 @@ ribosome	gene	6354717	6355412	-	V4Y05_RS28920	rplA	Essential	protein_coding
 ribosome	gene	6355412	6355843	-	V4Y05_RS28925	rplK	Essential	protein_coding
 ribosome	gene	6355962	6356495	-	V4Y05_RS28930	nusG	Essential	protein_coding
 ribosome	gene	6356505	6356873	-	V4Y05_RS28935	secE	Essential	protein_coding
-ribosome	gene	6356919	6356994	-	V4Y05_RS28940		No S1 entry	tRNA
+ribosome	gene	6356919	6356994	-	V4Y05_RS28940			tRNA
 ribosome	gene	6357049	6358242	-	V4Y05_RS28945	tuf	Essential	protein_coding
-ribosome	gene	6358327	6358402	-	V4Y05_RS28950		No S1 entry	tRNA
-ribosome	gene	6358429	6358502	-	V4Y05_RS28955		No S1 entry	tRNA
-ribosome	gene	6358527	6358611	-	V4Y05_RS28960		No S1 entry	tRNA
+ribosome	gene	6358327	6358402	-	V4Y05_RS28950			tRNA
+ribosome	gene	6358429	6358502	-	V4Y05_RS28955			tRNA
+ribosome	gene	6358527	6358611	-	V4Y05_RS28960			tRNA
 ribosome	gene	6358754	6359191	-	V4Y05_RS28965		Non essential	protein_coding
 ribosome	gene	6359199	6359948	-	V4Y05_RS28970		Essential	protein_coding
 ribosome	gene	6359938	6360897	-	V4Y05_RS28975	birA	Essential	protein_coding
