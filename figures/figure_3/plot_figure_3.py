@@ -1,22 +1,27 @@
-"""Draw Figure 3 from the SEED assignments for the 479 Pc9446 essential genes.
+"""Draw the three-level SEED network for the 479 essential genes in Pc9446.
 
 Run with Python 3.10+ and Matplotlib:
     python plot_figure_3.py
 
-The companion TSV lists every subsystem, its class and superclass, and its
-essential-gene count. It preserves the 131 terminal paths in the submitted
-Cytoscape node and edge exports. The plot sums counts up each path and shows
-the two upper levels in decreasing order of superclass size. Equal counts
-are ordered alphabetically. Unknown is an explicit category in the source.
+Both the high-resolution PNG and the searchable vector PDF use the same layout.
+Each terminal path in figure_3_seed_subsystems.tsv identifies a subsystem,
+its class and its superclass. Counts are summed along the paths. Each node's
+circle area is proportional to its count, with one scale for all levels.
+The group layout reserves space for wrapped names before positioning connected
+nodes. A repeated name at different levels or under a different parent
+identifies a separate node.
 
-To recreate the companion TSV and plot from the original exports:
-    python plot_figure_3.py --nodes "cytoscape_nodes(1).tsv" \
+To rebuild the input table from the original Cytoscape exports:
+    python plot_figure_3.py --nodes "cytoscape_nodes(1).tsv" \\
         --edges "cytoscape_edges(1).tsv" --save-data figure_3_seed_subsystems.tsv
 """
 
 import argparse
 import csv
 from collections import Counter, defaultdict
+from dataclasses import dataclass
+from functools import lru_cache
+from math import cos, pi, sqrt
 from pathlib import Path
 
 import matplotlib
@@ -24,16 +29,32 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Circle, Rectangle
 from matplotlib.textpath import TextToPath
 
 
 FIELDS = ("superclass", "class", "subsystem", "essential_genes")
-INK = "#202C31"
-MUTED = "#485B65"
-RULE = "#CBD4D8"
-BAR = "#4682B4"
-
+INK = "#192A35"
+MUTED = "#405460"
+NODE_COLORS = ("#AE017E", "#66C2A4", "#FFCC00")
+NODE_OUTLINES = ("#76115D", "#307360", "#906A13")
+EDGE_COLORS = ("#A96579", "#CB8648")
+BACKGROUND = {
+    "METABOLISM": "#F4F1E5", "PROTEIN PROCESSING": "#EAF0F8",
+    "CELLULAR PROCESSES": "#F6EBED", "ENERGY": "#EBF2E6",
+    "STRESS RESPONSE, DEFENSE, VIRULENCE": "#F7ECE3", "RNA PROCESSING": "#EEEAF6",
+    "DNA PROCESSING": "#E6F2F1", "MEMBRANE TRANSPORT": "#E7EEF1",
+    "CELL ENVELOPE": "#F3EAF3", "MISCELLANEOUS": "#ECEDE2",
+    "REGULATION AND CELL SIGNALING": "#EAF1EC", "Unknown": "#EEEEF0",
+}
+FONT = "DejaVu Sans"
+LEAF_SIZE = 7.6
+CLASS_SIZE = 8.2
+ROOT_SIZE = 10.6
+RADIUS_UNIT = 1.35
+COLUMN_WIDTH = 385
+GAP = 5
+MEASURE = TextToPath()
 
 def read_table(path):
     with path.open(encoding="utf-8-sig", newline="") as stream:
@@ -70,105 +91,254 @@ def paths_from_exports(nodes_path, edges_path):
     return rows
 
 
-def class_counts(rows):
-    groups = defaultdict(Counter)
-    seen = set()
+
+def hierarchy(rows):
+    counts = Counter()
+    children = defaultdict(list)
     for row in rows:
-        path = tuple(row[field] for field in FIELDS[:3])
-        count = int(row["essential_genes"])
-        if not all(path) or path in seen or count < 1:
+        path = tuple(row[key] for key in FIELDS[:3])
+        n = int(row["essential_genes"])
+        if not all(path) or path in counts or n < 1:
             raise ValueError(f"Invalid or duplicate SEED path: {path}")
-        seen.add(path)
-        groups[path[0]][path[1]] += count
-    if not groups:
-        raise ValueError("The hierarchy contains no subsystem assignments.")
-    return groups
+        for level in range(1, 4):
+            child = path[:level]
+            if child not in counts:
+                children[child[:-1]].append(child)
+            counts[child] += n
+    if not counts:
+        raise ValueError("The hierarchy has no assignments.")
+    return counts, children
 
 
-def wrap_label(label, width, size, weight="normal"):
-    font = FontProperties(family="DejaVu Sans", size=size, weight=weight)
-    measure = TextToPath()
+def radius(n):
+    return RADIUS_UNIT * sqrt(n)
+
+
+@lru_cache(maxsize=None)
+def text_width(value, size, weight):
+    font = FontProperties(family=FONT, size=size, weight=weight)
+    return MEASURE.get_text_width_height_descent(value, font, False)[0]
+
+
+def wrap(value, limit, size, weight="normal"):
     lines = []
-    for word in label.split():
-        if lines:
-            extended = f"{lines[-1]} {word}"
-            if measure.get_text_width_height_descent(extended, font, False)[0] <= width:
-                lines[-1] = extended
-                continue
-        lines.append(word)
+    for word in value.split():
+        if lines and text_width(lines[-1] + " " + word, size, weight) <= limit:
+            lines[-1] += " " + word
+        else:
+            lines.append(word)
     return "\n".join(lines)
 
 
-def superclass_label(label):
-    # Only adjust typesetting. The companion retains the exported capitalization.
-    return label.capitalize().replace("Dna", "DNA").replace("Rna", "RNA")
+def text_height(value, size):
+    return size * (1.28 * (value.count("\n") + 1))
 
 
-def render(groups, output):
-    width = 534  # all coordinates and font sizes are in points
-    parent_x, total_x, branch_x, class_x = 12, 133, 144, 151
-    bar_x, bar_end, count_x = 363, 491, 521
-    total_genes = sum(sum(counts.values()) for counts in groups.values())
-    nclasses = sum(len(counts) for counts in groups.values())
-    max_class = max(max(counts.values()) for counts in groups.values())
-    ordered = sorted(groups.items(), key=lambda item: (-sum(item[1].values()), item[0].casefold()))
+@dataclass
+class Leaf:
+    path: tuple
+    text: str
+    height: float
 
-    top = 70
-    layout = []
-    for parent, counts in ordered:
-        first_y = top
-        parent_text = wrap_label(superclass_label(parent), total_x - parent_x - 21, 9, "bold")
-        entries = []
-        for name, count in sorted(counts.items(), key=lambda item: (-item[1], item[0].casefold())):
-            label = wrap_label(name, bar_x - class_x - 8, 8.6)
-            row_height = max(14, 10 * len(label.splitlines()) + 4)
-            if len(counts) == 1:
-                row_height = max(row_height, 10 * len(parent_text.splitlines()) + 4)
-            entries.append((label, count, top + row_height / 2))
-            top += row_height
-        layout.append((parent_text, sum(counts.values()), (first_y + top) / 2, entries, top + 3))
-        top += 6
 
-    height = top + 19
-    fig = plt.figure(figsize=(width / 72, height / 72), dpi=120, facecolor="white")
-    ax = fig.add_axes((0, 0, 1, 1), xlim=(0, width), ylim=(height, 0))
+@dataclass
+class Fan:
+    path: tuple
+    text: str
+    wings: list
+    height: float
+    half_lane: float
+    class_x: float
+    radius: float
+    compact: bool
+
+
+def plan_fan(path, leaves, counts, width):
+    half_lane = 37
+    class_text = wrap(path[-1], 2 * half_lane, CLASS_SIZE, "bold")
+    class_r = radius(counts[path])
+    max_leaf_r = max(radius(counts[p]) for p in leaves)
+    longest_word = max(text_width(word, LEAF_SIZE, "normal") for leaf in leaves
+                       for word in leaf[-1].split())
+    two_wing_space = width / 2 - half_lane - 30 - max_leaf_r - 5
+    # A narrow compartment must not cut off a systematic chemical name.
+    # Use one wing for that class to keep even its longest word intact.
+    compact = len(leaves) <= 3 or longest_word > two_wing_space
+    class_x = 50 if compact else width / 2
+    outer = width - class_x if compact else width / 2
+    text_space = outer - half_lane - 30 - max_leaf_r - 5
+    # An alphabetically ordered wing makes related names easy to scan. Find
+    # the split minimizing the difference in the two wings' measured heights.
+    items = []
+    for child in sorted(leaves, key=lambda p: p[-1].casefold()):
+        words = wrap(child[-1], text_space, LEAF_SIZE)
+        items.append(Leaf(child, words, max(text_height(words, LEAF_SIZE),
+                                            2 * radius(counts[child])) + 4.1))
+    if compact:
+        wings = [(1, items)]
+    else:
+        total = sum(item.height for item in items)
+        split = min(range(1, len(items)), key=lambda i: abs(
+            total - 2 * sum(item.height for item in items[:i])))
+        wings = [(-1, items[:split]), (1, items[split:])]
+    wing_height = max(sum(item.height for item in wing) for _, wing in wings)
+    center_height = 2 * (class_r + 3 + text_height(class_text, CLASS_SIZE) + 2)
+    return Fan(path, class_text, wings, max(wing_height, center_height) + 8,
+               half_lane, class_x, class_r, compact)
+
+
+@dataclass
+class Card:
+    path: tuple
+    columns: list
+    width: float
+    height: float
+
+
+def plan_card(root, counts, children):
+    ncols = 2 if len(children[root]) >= 6 else 1
+    width = COLUMN_WIDTH * ncols + GAP * (ncols - 1)
+    col_width = (width - 12) / ncols
+    fans = [plan_fan(p, children[p], counts, col_width - 10) for p in children[root]]
+    cols = [[] for _ in range(ncols)]
+    heights = [0.0] * ncols
+    for fan in sorted(fans, key=lambda f: (-f.height, f.path)):
+        i = heights.index(min(heights))
+        cols[i].append(fan)
+        heights[i] += fan.height + GAP
+    return Card(root, cols, width, 44 + max(heights) + 5)
+
+
+def pack_cards(cards):
+    # Put the broadest trees down first; the shorter trees fill the spaces
+    # beneath them. All columns share a baseline to form the outer rectangle.
+    heights = [0.0] * 4
+    placed = []
+    for card in sorted(cards, key=lambda c: (-len(c.columns), -c.height, c.path)):
+        span = len(card.columns)
+        i = min(range(len(heights) - span + 1), key=lambda j: max(heights[j:j + span]))
+        y = max(heights[i:i + span])
+        placed.append((i, y, card))
+        heights[i:i + span] = [y + card.height + GAP] * span
+    max_y = max(heights) - GAP
+    output = []
+    for i, y, card in placed:
+        extend = min(max_y - y - card.height,
+                     min((yy - y - card.height - GAP for j, yy, other in placed
+                          if yy > y and j < i + len(card.columns)
+                          and i < j + len(other.columns)), default=float("inf")))
+        output.append((i * (COLUMN_WIDTH + GAP), y, card, card.height + max(0, extend)))
+    return output, 4 * COLUMN_WIDTH + 3 * GAP, max_y
+
+
+def root_name(value):
+    return value.capitalize().replace("Dna", "DNA").replace("Rna", "RNA")
+
+
+def build_network(rows):
+    counts, children = hierarchy(rows)
+    cards = [plan_card(p, counts, children) for p in children[()]]
+    places, network_width, network_height = pack_cards(cards)
+    margin, top = 9, 51
+    width, height = network_width + 2 * margin, network_height + top + margin
+    fig = plt.figure(figsize=(width / 72, height / 72), dpi=100, facecolor="white")
+    ax = fig.add_axes((0, 0, 1, 1), xlim=(0, width), ylim=(height, 0), aspect="equal")
     ax.set_axis_off()
+    ids = {p: i for i, p in enumerate(counts)}
+    ax.node_paths = {i: p for p, i in ids.items()}
 
-    def label(x, y, value, size, **kwargs):
-        ax.text(x, y, value, fontsize=size, va="center", color=kwargs.pop("color", INK),
-                family="DejaVu Sans", **kwargs)
+    def text(x, y, s, size, **style):
+        return ax.text(x, y, s, family=FONT, fontsize=size, color=style.pop("color", INK),
+                       va=style.pop("va", "center"), linespacing=1.09, zorder=4, **style)
 
-    label(parent_x, 14, "SEED functional assignments of essential genes", 14.4, weight="bold")
-    label(parent_x, 31, f"{total_genes} essential genes   ·   {len(groups)} superclasses   ·   "
-          f"{nclasses} classes", 9.5, color=MUTED)
-    label(parent_x, 53, "Superclass", 9.4, weight="bold")
-    label(total_x, 53, "Genes", 8.7, ha="right", weight="bold")
-    label(class_x, 53, "Class", 9.4, weight="bold")
-    label(bar_x, 48, "Genes per class", 9.1, weight="bold")
+    def node(path, x, y, label_x, label_y, label, size, **style):
+        depth, i = len(path) - 1, ids[path]
+        dot = Circle((x, y), radius(counts[path]), facecolor=NODE_COLORS[depth],
+                     edgecolor=NODE_OUTLINES[depth], linewidth=0.36, zorder=3, gid=f"node-{i}")
+        ax.add_patch(dot)
+        text(label_x, label_y, label, size, gid=f"label-{i}", **style)
 
-    scale = (bar_end - bar_x) / max_class
-    # Direct counts appear alongside the bars. Ticks provide a shared scale.
-    tick_step = 50 if max_class >= 100 else max(1, round(max_class / 3))
-    for tick in range(0, max_class + 1, tick_step):
-        x = bar_x + tick * scale
-        label(x, 61, str(tick), 7.6, ha="center", color=MUTED)
-        ax.plot([x, x], [67, layout[-1][-1]], lw=0.4, color="#E6EBED", zorder=0)
-    ax.plot([parent_x, count_x], [67, 67], lw=0.75, color="#9DAEB5")
-    for parent, total, middle, entries, divider_y in layout:
-        label(parent_x, middle, parent, 9, weight="bold", linespacing=1.05)
-        label(total_x, middle, str(total), 9, ha="right", weight="bold")
-        ax.plot([branch_x, branch_x], [entries[0][2], entries[-1][2]], lw=0.7, color="#A1B2BA")
-        for text, count, center in entries:
-            ax.plot([branch_x, class_x - 3.5], [center, center], lw=0.7, color="#A1B2BA")
-            label(class_x, center, text, 8.6, linespacing=1.05)
-            ax.add_patch(Rectangle((bar_x, center - 3.2), count * scale, 6.4,
-                                   facecolor=BAR, edgecolor="none"))
-            label(count_x, center, str(count), 8.8, ha="right")
-        ax.plot([parent_x, count_x], [divider_y, divider_y], lw=0.42, color=RULE)
-    label(parent_x, height - 9, "Unknown denotes genes without a SEED assignment in Table S1.",
-          8.4, color=MUTED)
-    fig.savefig(output, dpi=600, facecolor="white")
-    plt.close(fig)
+    def edge(parent, child, points):
+        xs, ys = zip(*points)
+        ax.plot(xs, ys, lw=0.67 if len(parent) == 1 else 0.54,
+                color=EDGE_COLORS[len(parent) - 1], zorder=2, solid_capstyle="round",
+                solid_joinstyle="round", gid=f"edge-{ids[parent]}-{ids[child]}")
+
+    for offset_x, offset_y, card, card_height in places:
+        x, y = margin + offset_x, top + offset_y
+        root = card.path
+        ax.add_patch(Rectangle((x, y), card.width, card_height,
+                               facecolor=BACKGROUND.get(root[0], "#ECF0F0"), edgecolor="none",
+                               zorder=0, gid=f"region-{ids[root]}"))
+        root_r = radius(counts[root])
+        root_x, root_y = x + 20, y + 20
+        node(root, root_x, root_y, root_x + root_r + 5, root_y, root_name(root[0]),
+             ROOT_SIZE, weight="bold")
+        col_width = (card.width - 12) / len(card.columns)
+        for c, fans in enumerate(card.columns):
+            left = x + 6 + c * col_width
+            # Extra height is distributed between and around fans within the region.
+            slack = max(0, card_height - 49 - sum(f.height + GAP for f in fans))
+            pad = slack / (len(fans) + 1)
+            cursor = y + 41 + pad
+            for fan in fans:
+                hub_x, hub_y = left + 8 + fan.class_x, cursor + fan.height / 2
+                origin_y = y + 37
+                # Enter each class from above through its central lane. The path
+                # follows the margin of its column, outside all subsystem labels.
+                gutter = left + 1.5
+                edge(root, fan.path, [(root_x, root_y), (root_x, origin_y),
+                     (gutter, origin_y), (gutter, cursor + 1), (hub_x, cursor + 1),
+                     (hub_x, hub_y)])
+                node(fan.path, hub_x, hub_y, hub_x, hub_y + fan.radius + 3,
+                     fan.text, CLASS_SIZE, weight="bold", ha="center", va="top")
+                label_half = max(text_width(line, CLASS_SIZE, "bold")
+                                 for line in fan.text.splitlines()) / 2
+                for sign, wing in fan.wings:
+                    h = sum(item.height for item in wing)
+                    row_top = hub_y - h / 2
+                    for item in wing:
+                        leaf_y = row_top + item.height / 2
+                        row_top += item.height
+                        position = (leaf_y - hub_y) / max(1, h / 2)
+                        arc = 12 + 11 * cos(position * pi / 2)
+                        leaf_x = hub_x + sign * (fan.half_lane + arc)
+                        leaf_r = radius(counts[item.path])
+                        # Direct spokes connect nearby nodes. Route a spoke around the
+                        # class name only when it would otherwise pass through its text.
+                        points = [(hub_x, hub_y)]
+                        dy = leaf_y - hub_y
+                        if dy > fan.radius + 2:
+                            dx_at_name = abs(leaf_x - hub_x) * (fan.radius + 2) / dy
+                            if dx_at_name < label_half + 2:
+                                points.append((hub_x + sign * (label_half + 3),
+                                               hub_y + fan.radius + 1))
+                        edge(fan.path, item.path, points + [(leaf_x, leaf_y)])
+                        node(item.path, leaf_x, leaf_y, leaf_x + sign * (leaf_r + 2.4),
+                             leaf_y, item.text, LEAF_SIZE, ha="left" if sign > 0 else "right")
+                cursor += fan.height + GAP + pad
+
+    total_genes = sum(counts[root] for root in children[()])
+    levels = Counter(map(len, counts))
+    text(margin, 13, "SEED functional hierarchy of essential genes", 18, weight="bold")
+    text(margin, 34, f"{total_genes} essential genes   ·   {levels[1]} superclasses   ·   "
+         f"{levels[2]} classes   ·   {levels[3]} subsystem entries", 9.4, color=MUTED)
+    # Use the same size function in the key as in the network.
+    legend_x = width - 554
+    for name, face, stroke in zip(("Superclass", "Class", "Subsystem"), NODE_COLORS, NODE_OUTLINES):
+        ax.add_patch(Circle((legend_x, 25), 4, facecolor=face, edgecolor=stroke,
+                            linewidth=0.45, zorder=3))
+        text(legend_x + 8, 25, name, 9.3)
+        legend_x += 77
+    text(legend_x + 3, 25, "Area ∝ gene count", 9.3, color=MUTED)
+    legend_x += 132
+    for n in (1, 16, 128):
+        r = radius(n)
+        ax.add_patch(Circle((legend_x + r, 25), r, facecolor="#D6DFE4",
+                            edgecolor="#52616A", linewidth=0.45, zorder=3))
+        text(legend_x + 2 * r + 5, 25, str(n), 9.2)
+        legend_x += 2 * r + 38
+    return fig, ax
 
 
 def main():
@@ -178,17 +348,25 @@ def main():
     parser.add_argument("--edges", type=Path)
     parser.add_argument("--save-data", type=Path)
     parser.add_argument("--output", type=Path, default=Path("Figure_3.png"))
+    parser.add_argument("--pdf", type=Path, help="Vector PDF destination (default: same stem as PNG)")
+    parser.add_argument("--dpi", type=int, default=450, help="PNG resolution (default: 450 dpi)")
     args = parser.parse_args()
     if bool(args.nodes) != bool(args.edges) or (args.save_data and not args.nodes):
         parser.error("--nodes and --edges are both required when rebuilding the hierarchy")
     rows = paths_from_exports(args.nodes, args.edges) if args.nodes else read_table(args.data)
-    groups = class_counts(rows)
     if args.save_data:
         with args.save_data.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=FIELDS, delimiter="\t", lineterminator="\n")
             writer.writeheader()
             writer.writerows(rows)
-    render(groups, args.output)
+    fig, _ = build_network(rows)
+    fig.savefig(args.output, dpi=args.dpi, facecolor="white")
+    # Type 42 embeds the TrueType face and retains searchable Unicode text.
+    with matplotlib.rc_context({"pdf.fonttype": 42}):
+        fig.savefig(args.pdf or args.output.with_suffix(".pdf"), facecolor="white",
+                    metadata={"Title": "SEED functional hierarchy of essential genes in Pc9446",
+                              "CreationDate": None, "ModDate": None})
+    plt.close(fig)
 
 
 if __name__ == "__main__":
