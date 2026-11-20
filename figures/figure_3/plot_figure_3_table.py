@@ -1,6 +1,8 @@
 """Draw the subsystem table version of Figure 3.
 
 Run python plot_figure_3_table.py beside figure_3_seed_subsystems.tsv.
+The SEED subsystem assignments come from the BV-BRC functional annotation
+and are compiled in Table S1.
 Python requirements: reportlab, pypdfium2 and Pillow. The PDF has searchable
 text and landscape A4 pages. The PNG shows the same hierarchy in two columns.
 """
@@ -193,7 +195,8 @@ def table(canvas, x, y, branches, totals, interval, max_count):
     rule(canvas, x, x + TABLE_WIDTH, y - height - 2)
 
 
-NOTE = "Unknown denotes genes without a SEED assignment in Table S1. Superclass and class counts are totals across their subsystems."
+NOTE = ("Unknown denotes genes without a SEED subsystem assignment in the functional annotation. "
+        "SEED assignments are from BV-BRC. Parent counts sum the subsystem counts.")
 
 
 def draw_outputs(branches, totals, pdf_path, png_path, dpi):

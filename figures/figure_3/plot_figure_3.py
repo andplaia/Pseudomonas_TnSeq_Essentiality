@@ -3,9 +3,10 @@
 Run with Python 3.10+ and Matplotlib:
     python plot_figure_3.py
 
-Both the high-resolution PNG and the searchable vector PDF use the same layout.
+Both the high-resolution PNG and the searchable vector PDF use the same portrait layout.
 Each terminal path in figure_3_seed_subsystems.tsv identifies a subsystem,
-its class and its superclass. Counts are summed along the paths. Each node's
+its class and its superclass in the BV-BRC functional annotation. Counts
+are summed along the paths. Each node's
 circle area is proportional to its count, with one scale for all levels.
 The group layout reserves space for wrapped names before positioning connected
 nodes. A repeated name at different levels or under a different parent
@@ -48,11 +49,12 @@ BACKGROUND = {
     "REGULATION AND CELL SIGNALING": "#EAF1EC", "Unknown": "#EEEEF0",
 }
 FONT = "DejaVu Sans"
-LEAF_SIZE = 7.6
-CLASS_SIZE = 8.2
-ROOT_SIZE = 10.6
+LEAF_SIZE = 9.6
+CLASS_SIZE = 10.2
+ROOT_SIZE = 12.6
 RADIUS_UNIT = 1.35
 COLUMN_WIDTH = 385
+REGION_COLUMNS = 3
 GAP = 5
 MEASURE = TextToPath()
 
@@ -154,7 +156,7 @@ class Fan:
 
 
 def plan_fan(path, leaves, counts, width):
-    half_lane = 37
+    half_lane = 45
     class_text = wrap(path[-1], 2 * half_lane, CLASS_SIZE, "bold")
     class_r = radius(counts[path])
     max_leaf_r = max(radius(counts[p]) for p in leaves)
@@ -164,7 +166,7 @@ def plan_fan(path, leaves, counts, width):
     # A narrow compartment must not cut off a systematic chemical name.
     # Use one wing for that class to keep even its longest word intact.
     compact = len(leaves) <= 3 or longest_word > two_wing_space
-    class_x = 50 if compact else width / 2
+    class_x = 57 if compact else width / 2
     outer = width - class_x if compact else width / 2
     text_space = outer - half_lane - 30 - max_leaf_r - 5
     # An alphabetically ordered wing makes related names easy to scan. Find
@@ -212,7 +214,7 @@ def plan_card(root, counts, children):
 def pack_cards(cards):
     # Put the broadest trees down first; the shorter trees fill the spaces
     # beneath them. All columns share a baseline to form the outer rectangle.
-    heights = [0.0] * 4
+    heights = [0.0] * REGION_COLUMNS
     placed = []
     for card in sorted(cards, key=lambda c: (-len(c.columns), -c.height, c.path)):
         span = len(card.columns)
@@ -228,7 +230,7 @@ def pack_cards(cards):
                           if yy > y and j < i + len(card.columns)
                           and i < j + len(other.columns)), default=float("inf")))
         output.append((i * (COLUMN_WIDTH + GAP), y, card, card.height + max(0, extend)))
-    return output, 4 * COLUMN_WIDTH + 3 * GAP, max_y
+    return output, REGION_COLUMNS * COLUMN_WIDTH + (REGION_COLUMNS - 1) * GAP, max_y
 
 
 def root_name(value):
@@ -239,8 +241,8 @@ def build_network(rows):
     counts, children = hierarchy(rows)
     cards = [plan_card(p, counts, children) for p in children[()]]
     places, network_width, network_height = pack_cards(cards)
-    margin, top = 9, 51
-    width, height = network_width + 2 * margin, network_height + top + margin
+    margin, top = 9, 56
+    width, height = network_width + 2 * margin, network_height + top + 25
     fig = plt.figure(figsize=(width / 72, height / 72), dpi=100, facecolor="white")
     ax = fig.add_axes((0, 0, 1, 1), xlim=(0, width), ylim=(height, 0), aspect="equal")
     ax.set_axis_off()
@@ -320,24 +322,26 @@ def build_network(rows):
 
     total_genes = sum(counts[root] for root in children[()])
     levels = Counter(map(len, counts))
-    text(margin, 13, "SEED functional hierarchy of essential genes", 18, weight="bold")
-    text(margin, 34, f"{total_genes} essential genes   ·   {levels[1]} superclasses   ·   "
-         f"{levels[2]} classes   ·   {levels[3]} subsystem entries", 9.4, color=MUTED)
+    text(margin, 15, "SEED functional hierarchy of essential genes", 20, weight="bold")
+    text(margin, 38, f"{total_genes} essential genes   ·   {levels[1]} superclasses   ·   "
+         f"{levels[2]} classes   ·   {levels[3]} subsystem entries", 11.4, color=MUTED)
     # Use the same size function in the key as in the network.
-    legend_x = width - 554
+    legend_x = width - 600
     for name, face, stroke in zip(("Superclass", "Class", "Subsystem"), NODE_COLORS, NODE_OUTLINES):
         ax.add_patch(Circle((legend_x, 25), 4, facecolor=face, edgecolor=stroke,
                             linewidth=0.45, zorder=3))
-        text(legend_x + 8, 25, name, 9.3)
-        legend_x += 77
-    text(legend_x + 3, 25, "Area ∝ gene count", 9.3, color=MUTED)
-    legend_x += 132
+        text(legend_x + 8, 25, name, 11.3)
+        legend_x += 87
+    text(legend_x + 3, 25, "Area ∝ gene count", 11.3, color=MUTED)
+    legend_x += 143
     for n in (1, 16, 128):
         r = radius(n)
         ax.add_patch(Circle((legend_x + r, 25), r, facecolor="#D6DFE4",
                             edgecolor="#52616A", linewidth=0.45, zorder=3))
-        text(legend_x + 2 * r + 5, 25, str(n), 9.2)
+        text(legend_x + 2 * r + 5, 25, str(n), 11.2)
         legend_x += 2 * r + 38
+    text(margin, height - 12, "Unknown denotes genes without a SEED subsystem assignment "
+         "in the BV-BRC functional annotation.", 10.2, color=MUTED)
     return fig, ax
 
 
